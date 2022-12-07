@@ -1,6 +1,8 @@
 . "$PSScriptRoot/utils/WebConfig.ps1"
 . "$PSScriptRoot/utils/MSBuild.ps1"
 . "$PSScriptRoot/utils/MSDeploy.ps1"
+. "$PSScriptRoot/utils/SitecoreConfig.ps1"
+. "$PSScriptRoot/utils/FileSystem.ps1"
 
 $fixtures = @{
     default = @{
@@ -23,13 +25,11 @@ Describe "Module Web.config transforms" {
             "Configuration" = "Debug";
             "DeployOnBuild" = "true";
             "PublishProfile" = "Package";
-            "DeployAsIisApp" = "false";
+            "DeployAsIisApp" = "false"
+            
         }
 
         $packageFilename = Join-Path $projectDir "obj\Debug\Package\HelixBuild.Sample.Web.zip"
-
-        $packageParameters = Get-MSDeployPackageParameters $packageFilename
-        $packageParameterNames = $packageParameters.Keys
 
         $packageFiles = Get-MSDeployPackageFiles $packageFilename
 
@@ -67,7 +67,7 @@ Describe "Module Web.config transforms" {
             "DeployOnBuild" = "true";
             "PublishProfile" = "Package";
             "DeployAsIisApp" = "false";
-            "IncludeHelixWebConfigTransformInPackage" = "true";
+            "IncludeHelixWebConfigTransformInPackage" = "true"
         }
 
         $packageFilename = Join-Path $projectDir "obj\Debug\Package\HelixBuild.Sample.Web.zip"
@@ -93,7 +93,7 @@ Describe "Module Web.config transforms" {
             "DeployOnBuild" = "true";
             "PublishProfile" = "Package";
             "DeployAsIisApp" = "false";
-            "ExcludeHelixTransforms" = "true";
+            "ExcludeHelixTransforms" = "true"
         }
 
         $packageFilename = Join-Path $projectDir "obj\Debug\Package\HelixBuild.Sample.Web.zip"
@@ -145,6 +145,43 @@ Describe "Module Web.config transforms" {
             Move-Item (Join-Path $projectDir "..\..\..\Features\HelixBuild.Feature1\code\Web.Helix.ignore") (Join-Path $projectDir "..\..\..\Features\HelixBuild.Feature1\code\Web.Helix.config")
             Move-Item (Join-Path $projectDir "..\..\..\Foundation\HelixBuild.Foundation1\code\Web.Helix.ignore") (Join-Path $projectDir "..\..\..\Foundation\HelixBuild.Foundation1\code\Web.Helix.config")
             Move-Item (Join-Path $projectDir "Web.Debug.ignore") (Join-Path $projectDir "Web.Debug.config")
+        }
+    }
+
+    Context "building with additional transforms" {
+        $projectPath = $fixtures.default.Project1
+        $projectDir = Split-Path $projectPath -Parent
+        
+        Invoke-MSBuild -Project $projectPath -Properties @{
+            "HelixTargetsConfiguration" = "WebRoot"; # This is only supported by the test fixture
+            "Configuration" = "Debug";
+            "DeployOnBuild" = "true";
+            "PublishProfile" = "Package";
+            "DeployAsIisApp" = "false";
+            "AdditionalFilesToTransform" = "App_Config\**\*.config";
+            "CollectWebConfigsToTransform" = "false"
+        }
+
+        $packageFilename = Join-Path $projectDir "obj\Debug\Package\HelixBuild.Sample.Web.zip"
+
+        It "includes (Filename).(Configuration).config from the local directory" {
+            $foundationConfigXml = [xml](Get-MSDeployPackageFileContent -PackagePath $packageFilename -FilePath "App_Config\Include\HelixBuild.Feature1.config")
+
+            (Get-SitecoreSetting $foundationConfigXml "Feature1.Setting2") | Should Be "Value2"
+        }
+
+        It "includes (Filename).Helix.config from the same directory in other modules" {
+            $foundationConfigXml = [xml](Get-MSDeployPackageFileContent -PackagePath $packageFilename -FilePath "App_Config\Include\HelixBuild.Feature1.config")
+
+            (Get-SitecoreSetting $foundationConfigXml "Feature1.Setting1") | Should Be "Project"
+        }
+
+        It "prefers transform sources in the web root" {
+            $viewsConfigXml = [xml](Get-MSDeployPackageFileContent -PackagePath $packageFilename -FilePath "Views\Web.config")
+
+            (Get-WebConfigAppSetting $viewsConfigXml "ViewsConfigSetting") | Should Be "ViewsConfigValue"
+
+            (Get-WebConfigAppSetting $viewsConfigXml "Feature1.ViewsConfigSetting") | Should Be "Feature1"
         }
     }
 }

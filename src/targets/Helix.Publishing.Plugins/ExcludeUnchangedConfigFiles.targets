@@ -17,7 +17,7 @@
   </PropertyGroup>
 
   <!-- Content item (ie csproj) implementation of CollectFilesFromHelixModules -->
-  <Target Name="ExcludeUnchangedConfigFilesFromPublish" BeforeTargets="PipelineTransformPhase" DependsOnTargets="CollectHelixModules" Condition="'$(ExcludeUnchangedConfigFilesFromPublish)'=='true'">
+  <Target Name="ExcludeUnchangedConfigFilesFromPublish" BeforeTargets="PipelineTransformPhase" DependsOnTargets="CollectHelixModules;TransformWebConfig" Condition="'$(ExcludeUnchangedConfigFilesFromPublish)'=='true'">
     <ItemGroup>
       <_ConfigFilesForPotentialExclusion 
         Include="@(FilesForPackagingFromProject)" 

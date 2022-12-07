@@ -177,7 +177,7 @@ function New-MSBuildTargetsWrapper
               AssemblyFile=`"$PSScriptRoot\..\..\RichardSzalay.Helix.Publishing.Tasks.dll`"
               />
 
-            <Target Name=`"Test$Name`" DependsOnTargets=`"$TargetName`">
+            <Target Name=`"Test$TargetName`" DependsOnTargets=`"$TargetName`">
                 <ItemGroup>
                     <_TestOutputLines Include=`"$returnsValue`" />
                 </ItemGroup>
